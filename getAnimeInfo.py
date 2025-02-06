@@ -48,10 +48,13 @@ def sanitize_filename(name):
 
 def get_soup(url):
     try:
-        response = session.get(url)
+        response = session.get(url, timeout=10)
         response.encoding = 'utf-8'  # 强制使用UTF-8解码
         response.raise_for_status()
         return BeautifulSoup(response.text, 'html.parser')
+    except requests.exceptions.Timeout:
+        print(f"请求超时 {url}")
+        return None
     except Exception as e:
         print(f"请求失败 {url}: {str(e)}")
         return None
@@ -99,12 +102,11 @@ def process_character_page(character_url, anime_name, char_name):
             filename_prefix=f"{char_name}"
         )
 
-def process_anime_page(anime_url):
+def process_anime_page(anime_url, needImage):
     # anime_id = anime_url.split("/")[-1]
-
-    # 下载动画主海报
     soup = get_soup(anime_url)
     if not soup:
+        print("请求超时或url错误")
         return
 
     if chinese_name_li := soup.select_one('#infobox > li:first-of-type'):
@@ -123,12 +125,13 @@ def process_anime_page(anime_url):
     with lock:
         lines_idx += 1
 
-    if main_poster := soup.select_one('div.infobox div[align="center"] a.thickbox.cover'):
-        safe_download(
-            url=main_poster.get('href'),
-            save_folder=f"posters//{anime_name}",
-            filename_prefix=f"{anime_name}"
-        )
+    if needImage:
+        if main_poster := soup.select_one('div.infobox div[align="center"] a.thickbox.cover'):
+            safe_download(
+                url=main_poster.get('href'),
+                save_folder=f"posters//{anime_name}",
+                filename_prefix=f"{anime_name}"
+            )
 
     # 处理前4个角色
     characters = soup.select('ul#browserItemList li.user')[:4]
@@ -143,17 +146,16 @@ def process_anime_page(anime_url):
                 # print(f"处理角色 {idx}: {raw_name}")  # 控制台应正确显示中文
 
                 char_url = urljoin(BASE_URL, char_link["href"])
-                executor.submit(
-                    process_character_page,
-                    char_url,
-                    anime_name,
-                    char_name
-                )
-                time.sleep(0.5)
+                if needImage:
+                    executor.submit(
+                        process_character_page,
+                        char_url,
+                        anime_name,
+                        char_name
+                    )
+                    time.sleep(0.5)
 
     return local_lines_idx, line
-
-
 
 def get_anime_links(nums):
     page = 1
@@ -161,7 +163,7 @@ def get_anime_links(nums):
     for _ in range((nums - 1) // 24 + 1):
         soup = get_soup(generate_list_url(page))
         if not soup:
-            return []
+            continue
 
         # 精准选择器 + 去重
         anime_items = soup.select('li.item h3 > a.l[href^="/subject/"]')
@@ -204,21 +206,26 @@ def handle_user_input():
         else:
             user_input_url = url
         break
-    return nums
+    needImage = False if input("是否需要角色和动画海报 (y / n)? 默认y ") == "n" else True
+
+    return nums, needImage
 
 def main():
-    nums = handle_user_input()
+    nums, needImage = handle_user_input()
+    print("开始处理， 正在获取动画列表。。。")
     anime_links = get_anime_links(nums)
-    print(f"即将处理 {len(anime_links)} 个动画")
+    print(f"获取成功，即将处理 {len(anime_links)} 个动画")
     lines = [""] * nums
 
-    with ThreadPoolExecutor(max_workers=5) as executor:  # 调整 max_workers 根据需要
-        future_to_url = {executor.submit(process_anime_page, link): link for link in anime_links}
+    with ThreadPoolExecutor(max_workers=10) as executor:  # 调整 max_workers 根据需要
+        future_to_url = {executor.submit(process_anime_page, link, needImage): link for link in anime_links}
 
         for i, future in enumerate(as_completed(future_to_url), 1):
             link = future_to_url[future]
             try:
                 result = future.result()
+                if result == None:
+                    continue
                 lines[result[0] - 1] = result[1]
                 print(f"\n进度: {i}/{len(anime_links)}")
             except Exception as exc:
