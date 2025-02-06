@@ -1,0 +1,10 @@
+.idea
+.vscode
+.venv
+dist
+build
+
+posters
+output.txt
+
+getAnimeInfo.spec
