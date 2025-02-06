@@ -1,6 +1,6 @@
 # 简介
- 一个用于抓取 bangumi 排行榜网址如 https://age.wpcoder.cn/anime/browser/airtime/2024?sort=collects的 动画海报和主要角色及其海报的 Python 应用程序。
- 可以具体排行榜和抓取动画数量
+ 一个用于抓取 bangumi 排行榜网址如 https://age.wpcoder.cn/anime/browser/airtime/2024?sort=collects 的动画海报和主要角色及其海报的 Python 应用程序。
+ 可以自己选择排行榜的网址和抓取的动画数量
 ## 环境搭建指南
 
 ### 前提条件
