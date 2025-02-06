@@ -1,6 +1,13 @@
 name: Build and Release
 
 on:
+  workflow_dispatch:
+      inputs:
+        # 可以在这里定义可选的输入参数，例如：
+        param1:
+          description: 'Optional input parameter'
+          required: false
+          default: 'default value'
   push:
     tags:
       - 'v*'  # 当推送带有 v 开头的标签时触发工作流
