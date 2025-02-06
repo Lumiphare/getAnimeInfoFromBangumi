@@ -3,7 +3,13 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*'  # 当推送带有 v 开头的标签时触发工作流
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      param1:
+        description: 'Optional input parameter'
+        required: false
+        default: 'default value'
 
 jobs:
   build:
@@ -19,20 +25,29 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.12  # 可以根据需要调整 Python 版本
+          python-version: 3.9
 
       - name: Install dependencies
         run: |
+          if [ "${{ runner.os }}" == "ubuntu-latest" ]; then
+            sudo apt-get update
+          fi
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4 pyinstaller
+          pip install requests==2.28.2 beautifulsoup4==4.11.2 pyinstaller==5.7.0
+
+      - name: Set file permissions
+        run: |
+          if [ "${{ runner.os }}" != "Windows" ]; then
+            chmod +x your_script.py
+          fi
 
       - name: Package with PyInstaller
         shell: bash
         run: |
           if [ "${{ runner.os }}" == "Windows" ]; then
-            pyinstaller --onefile your_script.py
+            pyinstaller --onefile --debug your_script.py
           else
-            pyinstaller --onefile --noconsole your_script.py
+            pyinstaller --onefile --noconsole --debug your_script.py
           fi
 
       - name: Package output
@@ -50,7 +65,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4  # 更新到 v4 版本
+        uses: actions/upload-artifact@v4
         with:
           name: executable-${{ runner.os }}
           path: dist/your_script-${{ runner.os }}*
@@ -60,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4  # 更新到 v4 版本
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
